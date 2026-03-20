@@ -1,7 +1,7 @@
 {
   "name": "QR Quantité Pro",
-  "short_name": "QR Qty",
-  "description": "Scanner Data Matrix hors-ligne",
+  "short_name": "Qté QR",
+  "description": "Scanner et modificateur de Data Matrix industriel",
   "start_url": "index.html",
   "display": "standalone",
   "background_color": "#f0f4f8",
@@ -10,7 +10,8 @@
     {
       "src": "https://cdn-icons-png.flaticon.com/512/241/241528.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
