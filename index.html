@@ -6,56 +6,64 @@
 <title>QR Quantité Pro</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1d6aff">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<script src="https://unpkg.com/@zxing/library@latest"></script>
+<script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bwip-js@3/dist/bwip-js-min.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Syne:wght@800&display=swap');
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  body { background: #f0f4f8; color: #111827; font-family: 'Inter', sans-serif; padding: 16px; }
-  .card { background: #fff; border-radius: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); margin-bottom: 15px; overflow: hidden; border: 1px solid #dde3ec; }
-  .btn { width: 100%; padding: 15px; border-radius: 12px; border: none; font-weight: 700; cursor: pointer; background: #1d6aff; color: white; margin-top: 10px; }
-  #live-view { position: relative; background: #000; width: 100%; aspect-ratio: 1/1; display: none; }
-  #video { width: 100%; height: 100%; object-fit: cover; }
-  .scan-frame { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 60%; height: 60%; border: 2px solid #fff; border-radius: 10px; }
-  #result-card { display: none; padding: 15px; }
-  .scanned-text { background: #f7f9fc; padding: 10px; border-radius: 10px; font-family: monospace; word-break: break-all; margin-top: 10px; }
+  body { font-family: sans-serif; background: #f0f4f8; padding: 15px; margin: 0; }
+  .card { background: white; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 15px; overflow: hidden; }
+  .header { background: #1d6aff; color: white; padding: 15px; font-weight: bold; text-align: center; }
+  #live-view { width: 100%; aspect-ratio: 1/1; background: #000; display: none; position: relative; }
+  video { width: 100%; height: 100%; object-fit: cover; }
+  .btn { display: block; width: calc(100% - 30px); margin: 15px; padding: 15px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: center; text-decoration: none; }
+  .btn-blue { background: #1d6aff; color: white; }
+  .btn-green { background: #10b981; color: white; }
+  .btn-outline { background: transparent; border: 2px solid #ccc; color: #666; }
+  .result-area { padding: 15px; }
+  .raw-data { background: #eee; padding: 10px; border-radius: 8px; font-family: monospace; font-size: 11px; word-break: break-all; margin: 10px 0; }
+  .input-qty { width: 100%; font-size: 30px; text-align: center; padding: 10px; border: 2px solid #1d6aff; border-radius: 10px; margin: 10px 0; box-sizing: border-box; }
+  .gs-char { background: #d1fae5; color: #065f46; padding: 0 2px; border-radius: 3px; }
+  #qr-result { text-align: center; padding: 15px; }
 </style>
 </head>
 <body>
 
 <div class="card">
-  <div style="padding: 15px; font-weight: 800; border-bottom: 1px solid #eee;">📷 SCANNER</div>
-  <div id="live-view"><video id="video" playsinline></video><div class="scan-frame"></div></div>
-  <div style="padding: 15px;">
-    <button class="btn" id="btn-start" onclick="startScan()">Démarrer le Scan</button>
-    <button class="btn" id="btn-stop" onclick="stopScan()" style="display:none; background:#ef4444;">Arrêter</button>
+  <div class="header">SCANNER DATA MATRIX</div>
+  <div id="live-view"><video id="video" playsinline></video></div>
+  <button id="btn-start" class="btn btn-blue" onclick="startScan()">▶ Démarrer la Caméra</button>
+  <button id="btn-stop" class="btn btn-outline" onclick="stopScan()" style="display:none">⏹ Arrêter</button>
+</div>
+
+<div class="card" id="edit-screen" style="display:none">
+  <div class="header">MODIFICATION QUANTITÉ</div>
+  <div class="result-area">
+    <div style="font-size: 12px; color: #666;">Code Original :</div>
+    <div id="raw-display" class="raw-data"></div>
+    
+    <label style="font-weight: bold;">Nouvelle Quantité (Q) :</label>
+    <input type="number" id="qty-input" class="input-qty" oninput="updateCode()">
+    
+    <div id="qr-result"></div>
+    <button class="btn btn-green" onclick="downloadQR()">💾 Enregistrer l'image</button>
+    <button class="btn btn-outline" onclick="location.reload()">🔄 Nouveau Scan</button>
   </div>
 </div>
 
-<div class="card" id="result-card">
-  <strong>Code détecté :</strong>
-  <div class="scanned-text" id="raw-out"></div>
-  <div id="qr-result-area" style="text-align:center; margin-top:15px;"></div>
-  <button class="btn" style="background:#10b981" onclick="location.reload()">Nouveau Scan</button>
-</div>
-
 <script>
-  const codeReader = new ZXing.BrowserMultiFormatReader();
-  let selectedDeviceId;
+  let codeReader = new ZXing.BrowserMultiFormatReader();
+  let originalRaw = "";
+  let stream = null;
 
-  function startScan() {
+  async function startScan() {
     document.getElementById('live-view').style.display = 'block';
     document.getElementById('btn-start').style.display = 'none';
     document.getElementById('btn-stop').style.display = 'block';
 
     codeReader.decodeFromVideoDevice(null, 'video', (result, err) => {
       if (result) {
-        document.getElementById('raw-out').textContent = result.text;
-        document.getElementById('result-card').style.display = 'block';
+        originalRaw = result.text;
         stopScan();
-        generateDataMatrix(result.text);
+        showEdit();
       }
     });
   }
@@ -67,17 +75,46 @@
     document.getElementById('btn-stop').style.display = 'none';
   }
 
-  function generateDataMatrix(text) {
-    const canvas = document.createElement('canvas');
-    bwipjs.toCanvas(canvas, { bcid: 'datamatrix', text: text, scale: 3 });
-    document.getElementById('qr-result-area').innerHTML = '';
-    document.getElementById('qr-result-area').appendChild(canvas);
+  function showEdit() {
+    document.getElementById('edit-screen').style.display = 'block';
+    
+    // Affichage propre des caractères GS
+    let display = originalRaw.split(String.fromCharCode(29)).join('<span class="gs-char">GS</span>');
+    document.getElementById('raw-display').innerHTML = display;
+
+    // Détection auto du Q actuel
+    let m = originalRaw.match(/Q(\d+)/);
+    if (m) document.getElementById('qty-input').value = m[1];
+    
+    updateCode();
   }
 
-  // Enregistrement du Service Worker pour le hors-ligne
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js');
+  function updateCode() {
+    let newQty = document.getElementById('qty-input').value;
+    // On remplace Q[chiffres] par Q[nouveau] tout en gardant le reste (GS, etc.)
+    let modified = originalRaw.replace(/Q\d+/, "Q" + newQty);
+    
+    let out = document.getElementById('qr-result');
+    out.innerHTML = "";
+    let canvas = document.createElement('canvas');
+    bwipjs.toCanvas(canvas, {
+      bcid: 'datamatrix',
+      text: modified,
+      scale: 4,
+      padding: 10
+    });
+    out.appendChild(canvas);
+  }
+
+  function downloadQR() {
+    let canvas = document.querySelector('#qr-result canvas');
+    let a = document.createElement('a');
+    a.download = 'nouveau_code.png';
+    a.href = canvas.toDataURL();
+    a.click();
   }
 </script>
+
 </body>
 </html>
+
