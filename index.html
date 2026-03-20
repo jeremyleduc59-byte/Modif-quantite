@@ -5,54 +5,43 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>QR Quantité Pro</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1d6aff">
 <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bwip-js@3/dist/bwip-js-min.js"></script>
 <style>
-  body { font-family: sans-serif; background: #f0f4f8; padding: 15px; margin: 0; }
-  .card { background: white; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 15px; overflow: hidden; }
-  .header { background: #1d6aff; color: white; padding: 15px; font-weight: bold; text-align: center; }
-  #live-view { width: 100%; aspect-ratio: 1/1; background: #000; display: none; position: relative; }
+  body { font-family: sans-serif; background: #f0f4f8; padding: 15px; margin: 0; text-align: center; }
+  .card { background: white; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 15px; padding: 15px; }
+  #live-view { width: 100%; aspect-ratio: 1/1; background: #000; display: none; margin-bottom: 10px; }
   video { width: 100%; height: 100%; object-fit: cover; }
-  .btn { display: block; width: calc(100% - 30px); margin: 15px; padding: 15px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: center; text-decoration: none; }
+  .btn { display: block; width: 100%; padding: 15px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 10px; text-decoration: none; }
   .btn-blue { background: #1d6aff; color: white; }
-  .btn-green { background: #10b981; color: white; }
-  .btn-outline { background: transparent; border: 2px solid #ccc; color: #666; }
-  .result-area { padding: 15px; }
-  .raw-data { background: #eee; padding: 10px; border-radius: 8px; font-family: monospace; font-size: 11px; word-break: break-all; margin: 10px 0; }
-  .input-qty { width: 100%; font-size: 30px; text-align: center; padding: 10px; border: 2px solid #1d6aff; border-radius: 10px; margin: 10px 0; box-sizing: border-box; }
-  .gs-char { background: #d1fae5; color: #065f46; padding: 0 2px; border-radius: 3px; }
-  #qr-result { text-align: center; padding: 15px; }
+  .btn-outline { background: #eee; color: #444; }
+  .raw-box { background: #f8f9fa; border: 1px solid #ddd; padding: 10px; font-family: monospace; font-size: 11px; word-break: break-all; margin: 10px 0; text-align: left; }
+  .gs-tag { background: #d1fae5; color: #065f46; padding: 0 2px; border-radius: 3px; font-weight: bold; }
+  .input-qty { width: 100%; font-size: 32px; text-align: center; border: 2px solid #1d6aff; border-radius: 10px; padding: 10px; margin: 10px 0; box-sizing: border-box; }
 </style>
 </head>
 <body>
 
 <div class="card">
-  <div class="header">SCANNER DATA MATRIX</div>
+  <h3>📷 SCANNER DATA MATRIX</h3>
   <div id="live-view"><video id="video" playsinline></video></div>
   <button id="btn-start" class="btn btn-blue" onclick="startScan()">▶ Démarrer la Caméra</button>
   <button id="btn-stop" class="btn btn-outline" onclick="stopScan()" style="display:none">⏹ Arrêter</button>
 </div>
 
-<div class="card" id="edit-screen" style="display:none">
-  <div class="header">MODIFICATION QUANTITÉ</div>
-  <div class="result-area">
-    <div style="font-size: 12px; color: #666;">Code Original :</div>
-    <div id="raw-display" class="raw-data"></div>
-    
-    <label style="font-weight: bold;">Nouvelle Quantité (Q) :</label>
-    <input type="number" id="qty-input" class="input-qty" oninput="updateCode()">
-    
-    <div id="qr-result"></div>
-    <button class="btn btn-green" onclick="downloadQR()">💾 Enregistrer l'image</button>
-    <button class="btn btn-outline" onclick="location.reload()">🔄 Nouveau Scan</button>
-  </div>
+<div id="result-card" class="card" style="display:none">
+  <h3>📦 MODIFICATION</h3>
+  <div class="raw-box" id="raw-display"></div>
+  <label>Nouvelle Quantité (Q) :</label>
+  <input type="number" id="qty-input" class="input-qty" oninput="updateQR()">
+  <div id="qr-output" style="margin-top:15px"></div>
+  <button class="btn btn-blue" onclick="downloadQR()">💾 Enregistrer l'image</button>
+  <button class="btn btn-outline" onclick="location.reload()">🔄 Nouveau Scan</button>
 </div>
 
 <script>
   let codeReader = new ZXing.BrowserMultiFormatReader();
   let originalRaw = "";
-  let stream = null;
 
   async function startScan() {
     document.getElementById('live-view').style.display = 'block';
@@ -76,25 +65,23 @@
   }
 
   function showEdit() {
-    document.getElementById('edit-screen').style.display = 'block';
-    
-    // Affichage propre des caractères GS
-    let display = originalRaw.split(String.fromCharCode(29)).join('<span class="gs-char">GS</span>');
+    document.getElementById('result-card').style.display = 'block';
+    // Affiche les caractères GS de façon visible
+    let display = originalRaw.split(String.fromCharCode(29)).join('<span class="gs-tag">GS</span>');
     document.getElementById('raw-display').innerHTML = display;
-
-    // Détection auto du Q actuel
-    let m = originalRaw.match(/Q(\d+)/);
-    if (m) document.getElementById('qty-input').value = m[1];
     
-    updateCode();
+    // Détection auto du Q actuel
+    let match = originalRaw.match(/Q(\d+)/);
+    if (match) document.getElementById('qty-input').value = match[1];
+    updateQR();
   }
 
-  function updateCode() {
+  function updateQR() {
     let newQty = document.getElementById('qty-input').value;
-    // On remplace Q[chiffres] par Q[nouveau] tout en gardant le reste (GS, etc.)
+    // Remplace Q[chiffres] par Q[nouveau] en gardant les caractères GS
     let modified = originalRaw.replace(/Q\d+/, "Q" + newQty);
     
-    let out = document.getElementById('qr-result');
+    let out = document.getElementById('qr-output');
     out.innerHTML = "";
     let canvas = document.createElement('canvas');
     bwipjs.toCanvas(canvas, {
@@ -107,7 +94,7 @@
   }
 
   function downloadQR() {
-    let canvas = document.querySelector('#qr-result canvas');
+    let canvas = document.querySelector('#qr-output canvas');
     let a = document.createElement('a');
     a.download = 'nouveau_code.png';
     a.href = canvas.toDataURL();
@@ -117,4 +104,3 @@
 
 </body>
 </html>
-
