@@ -47,7 +47,6 @@
     document.getElementById('live-view').style.display = 'block';
     document.getElementById('btn-start').style.display = 'none';
     document.getElementById('btn-stop').style.display = 'block';
-
     codeReader.decodeFromVideoDevice(null, 'video', (result, err) => {
       if (result) {
         originalRaw = result.text;
@@ -66,11 +65,7 @@
 
   function showEdit() {
     document.getElementById('result-card').style.display = 'block';
-    // Affiche les caractères GS de façon visible
-    let display = originalRaw.split(String.fromCharCode(29)).join('<span class="gs-tag">GS</span>');
-    document.getElementById('raw-display').innerHTML = display;
-    
-    // Détection auto du Q actuel
+    document.getElementById('raw-display').innerHTML = originalRaw.split(String.fromCharCode(29)).join('<span class="gs-tag">GS</span>');
     let match = originalRaw.match(/Q(\d+)/);
     if (match) document.getElementById('qty-input').value = match[1];
     updateQR();
@@ -78,29 +73,23 @@
 
   function updateQR() {
     let newQty = document.getElementById('qty-input').value;
-    // Remplace Q[chiffres] par Q[nouveau] en gardant les caractères GS
     let modified = originalRaw.replace(/Q\d+/, "Q" + newQty);
-    
     let out = document.getElementById('qr-output');
     out.innerHTML = "";
     let canvas = document.createElement('canvas');
-    bwipjs.toCanvas(canvas, {
-      bcid: 'datamatrix',
-      text: modified,
-      scale: 4,
-      padding: 10
-    });
+    bwipjs.toCanvas(canvas, { bcid: 'datamatrix', text: modified, scale: 4, padding: 10 });
     out.appendChild(canvas);
   }
 
   function downloadQR() {
     let canvas = document.querySelector('#qr-output canvas');
-    let a = document.createElement('a');
-    a.download = 'nouveau_code.png';
-    a.href = canvas.toDataURL();
-    a.click();
+    if(canvas) {
+      let a = document.createElement('a');
+      a.download = 'nouveau_code.png';
+      a.href = canvas.toDataURL();
+      a.click();
+    }
   }
 </script>
-
 </body>
 </html>
