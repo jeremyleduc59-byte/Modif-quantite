@@ -1,95 +1,71 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>QR Quantité Pro</title>
-<link rel="manifest" href="manifest.json">
-<script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bwip-js@3/dist/bwip-js-min.js"></script>
-<style>
-  body { font-family: sans-serif; background: #f0f4f8; padding: 15px; margin: 0; text-align: center; }
-  .card { background: white; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 15px; padding: 15px; }
-  #live-view { width: 100%; aspect-ratio: 1/1; background: #000; display: none; margin-bottom: 10px; }
-  video { width: 100%; height: 100%; object-fit: cover; }
-  .btn { display: block; width: 100%; padding: 15px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 10px; text-decoration: none; }
-  .btn-blue { background: #1d6aff; color: white; }
-  .btn-outline { background: #eee; color: #444; }
-  .raw-box { background: #f8f9fa; border: 1px solid #ddd; padding: 10px; font-family: monospace; font-size: 11px; word-break: break-all; margin: 10px 0; text-align: left; }
-  .gs-tag { background: #d1fae5; color: #065f46; padding: 0 2px; border-radius: 3px; font-weight: bold; }
-  .input-qty { width: 100%; font-size: 32px; text-align: center; border: 2px solid #1d6aff; border-radius: 10px; padding: 10px; margin: 10px 0; box-sizing: border-box; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Pro</title>
+    <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bwip-js@3/dist/bwip-js-min.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f0f4f8; }
+        #video { width: 100%; max-width: 400px; border-radius: 10px; display: none; }
+        .btn { display: block; width: 100%; padding: 15px; margin: 10px 0; background: #1d6aff; color: white; border: none; border-radius: 8px; font-weight: bold; }
+        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        input { width: 100%; font-size: 24px; padding: 10px; margin: 10px 0; border: 2px solid #1d6aff; border-radius: 8px; text-align: center; }
+        #qr-output canvas { margin-top: 20px; max-width: 100%; }
+    </style>
 </head>
 <body>
+    <div class="card">
+        <h2>Scanner QR/DataMatrix</h2>
+        <video id="video" playsinline></video>
+        <button id="start-btn" class="btn" onclick="startScan()">▶ Start Camera</button>
+        
+        <div id="edit-zone" style="display:none">
+            <p>Original: <span id="old-data" style="font-size:10px; color:gray"></span></p>
+            <label>New Qty:</label>
+            <input type="number" id="qty-input" oninput="generate()">
+            <div id="qr-output"></div>
+            <button class="btn" style="background:#10b981" onclick="download()">💾 Save Image</button>
+        </div>
+    </div>
 
-<div class="card">
-  <h3>📷 SCANNER DATA MATRIX</h3>
-  <div id="live-view"><video id="video" playsinline></video></div>
-  <button id="btn-start" class="btn btn-blue" onclick="startScan()">▶ Démarrer la Caméra</button>
-  <button id="btn-stop" class="btn btn-outline" onclick="stopScan()" style="display:none">⏹ Arrêter</button>
-</div>
+    <script>
+        let reader = new ZXing.BrowserMultiFormatReader();
+        let rawText = "";
 
-<div id="result-card" class="card" style="display:none">
-  <h3>📦 MODIFICATION</h3>
-  <div class="raw-box" id="raw-display"></div>
-  <label>Nouvelle Quantité (Q) :</label>
-  <input type="number" id="qty-input" class="input-qty" oninput="updateQR()">
-  <div id="qr-output" style="margin-top:15px"></div>
-  <button class="btn btn-blue" onclick="downloadQR()">💾 Enregistrer l'image</button>
-  <button class="btn btn-outline" onclick="location.reload()">🔄 Nouveau Scan</button>
-</div>
+        async function startScan() {
+            document.getElementById('video').style.display = 'block';
+            document.getElementById('start-btn').style.display = 'none';
+            reader.decodeFromVideoDevice(null, 'video', (result, err) => {
+                if (result) {
+                    rawText = result.text;
+                    reader.reset();
+                    document.getElementById('video').style.display = 'none';
+                    document.getElementById('edit-zone').style.display = 'block';
+                    document.getElementById('old-data').innerText = rawText;
+                    let m = rawText.match(/Q(\d+)/);
+                    if (m) document.getElementById('qty-input').value = m[1];
+                    generate();
+                }
+            });
+        }
 
-<script>
-  let codeReader = new ZXing.BrowserMultiFormatReader();
-  let originalRaw = "";
+        function generate() {
+            let q = document.getElementById('qty-input').value;
+            let modified = rawText.replace(/Q\d+/, "Q" + q);
+            let out = document.getElementById('qr-output');
+            out.innerHTML = "";
+            bwipjs.toCanvas(document.createElement('canvas'), {
+                bcid: 'datamatrix', text: modified, scale: 5
+            }, (err, cvs) => { if (!err) out.appendChild(cvs); });
+        }
 
-  async function startScan() {
-    document.getElementById('live-view').style.display = 'block';
-    document.getElementById('btn-start').style.display = 'none';
-    document.getElementById('btn-stop').style.display = 'block';
-    codeReader.decodeFromVideoDevice(null, 'video', (result, err) => {
-      if (result) {
-        originalRaw = result.text;
-        stopScan();
-        showEdit();
-      }
-    });
-  }
-
-  function stopScan() {
-    codeReader.reset();
-    document.getElementById('live-view').style.display = 'none';
-    document.getElementById('btn-start').style.display = 'block';
-    document.getElementById('btn-stop').style.display = 'none';
-  }
-
-  function showEdit() {
-    document.getElementById('result-card').style.display = 'block';
-    document.getElementById('raw-display').innerHTML = originalRaw.split(String.fromCharCode(29)).join('<span class="gs-tag">GS</span>');
-    let match = originalRaw.match(/Q(\d+)/);
-    if (match) document.getElementById('qty-input').value = match[1];
-    updateQR();
-  }
-
-  function updateQR() {
-    let newQty = document.getElementById('qty-input').value;
-    let modified = originalRaw.replace(/Q\d+/, "Q" + newQty);
-    let out = document.getElementById('qr-output');
-    out.innerHTML = "";
-    let canvas = document.createElement('canvas');
-    bwipjs.toCanvas(canvas, { bcid: 'datamatrix', text: modified, scale: 4, padding: 10 });
-    out.appendChild(canvas);
-  }
-
-  function downloadQR() {
-    let canvas = document.querySelector('#qr-output canvas');
-    if(canvas) {
-      let a = document.createElement('a');
-      a.download = 'nouveau_code.png';
-      a.href = canvas.toDataURL();
-      a.click();
-    }
-  }
-</script>
+        function download() {
+            let cvs = document.querySelector('canvas');
+            let a = document.createElement('a');
+            a.download = "code.png"; a.href = cvs.toDataURL(); a.click();
+        }
+    </script>
 </body>
 </html>
