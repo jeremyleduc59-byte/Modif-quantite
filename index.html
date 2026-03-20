@@ -28,9 +28,10 @@
 
     <div id="edit-zone" class="card" style="display:none">
         <h3>📦 MODIFICATION (Q)</h3>
-        <div class="raw-text" id="old-data"></div>
+        <p>Original: <span id="old-data" style="font-size:10px; color:gray;"></span></p>
+        <label>New Qty:</label>
         <input type="number" id="qty-input" oninput="generate()">
-        <div id="qr-output" style="margin-top:15px"></div>
+        <div id="qr-output" style="margin-top:20px; max-width: 100%;"></div>
         <button class="btn btn-green" onclick="download()">💾 Save Image</button>
         <button class="btn btn-outline" onclick="location.reload()">🔄 New Scan</button>
     </div>
@@ -58,18 +59,36 @@
 
         function generate() {
             let q = document.getElementById('qty-input').value;
+            if (!rawText) return;
+            
             let modified = rawText.replace(/Q\d+/, "Q" + q);
             let out = document.getElementById('qr-output');
-            out.innerHTML = "";
-            bwipjs.toCanvas(document.createElement('canvas'), {
-                bcid: 'datamatrix', text: modified, scale: 5, padding: 10
-            }, (err, cvs) => { if (!err) out.appendChild(cvs); });
+            out.innerHTML = ""; 
+
+            let canvas = document.createElement('canvas');
+            try {
+                bwipjs.toCanvas(canvas, {
+                    bcid: 'datamatrix', 
+                    text: modified, 
+                    scale: 5, 
+                    padding: 10
+                }, (err, cvs) => {
+                    if (!err) {
+                        out.appendChild(cvs);
+                    }
+                });
+            } catch (e) {
+                console.error(e);
+            }
         }
 
         function download() {
             let cvs = document.querySelector('canvas');
+            if (!cvs) return;
             let a = document.createElement('a');
-            a.download = "new_code.png"; a.href = cvs.toDataURL(); a.click();
+            a.download = "code_modifie.png"; 
+            a.href = cvs.toDataURL(); 
+            a.click();
         }
 
         if ('serviceWorker' in navigator) {
