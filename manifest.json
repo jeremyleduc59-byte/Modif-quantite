@@ -1,0 +1,15 @@
+{
+  "name": "QR Quantité Pro",
+  "short_name": "Qté QR",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#f0f4f8",
+  "theme_color": "#1d6aff",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/241/241528.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
